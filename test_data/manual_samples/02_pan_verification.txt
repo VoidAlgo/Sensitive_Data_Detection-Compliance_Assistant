@@ -1,0 +1,33 @@
+======================================================================
+ZEAL BROKING LTD - INDIVIDUAL ACCOUNT OPENING KYC FORM
+======================================================================
+Segment: Equity / Derivatives / Currency
+Application No: ACC-883719-CP
+Date of Submission: July 02, 2026
+
+SOLE / FIRST APPLICANT DETAILS:
+-------------------------------
+Name of Applicant: Priya Sharma
+Father / Spouse Name: Ramesh Sharma
+Mother Name: Sunita Sharma
+Date of Birth: 04 November 1990
+Gender: Female
+Marital Status: Single
+Nationality: Indian
+Gross Annual Income: 5,00_000 - 10,00_000 INR
+
+TAX & CITIZENSHIP DETAILS:
+--------------------------
+Country of Tax Residency: India
+Permanent Account Number (PAN): ABCDE1234F
+Tax Identification Number (TIN): ABCDE1234F
+
+DECLARATION & SIGNATURE:
+------------------------
+I, Priya Sharma, confirm that the Permanent Account Number (PAN) issued to me by the Income Tax Department of India is ABCDE1234F. I authorize Zeal Broking Ltd to verify my PAN details using the NSDL Tax Portal.
+
+(Note: Lowercase version 'abcde1234f' was written in the initial application memo but failed standard pre-onboarding checks. Please double check if lowercase inputs are permitted by the validator).
+
+----------------------------------------------------------------------
+Applicant Signature: [Priya Sharma]
+Authorized Signatory: Vikram Singh (Manager)

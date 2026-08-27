@@ -1,0 +1,29 @@
+======================================================================
+HDFC BANK LTD - CUSTOMER ACCOUNT STATEMENT
+======================================================================
+Branch Address: Connaught Place, New Delhi - 110001
+Statement Period: 01/06/2026 to 30/06/2026
+Account Name: Rajesh Kumar
+Registered Mobile: 9876543210
+
+ACCOUNT SUMMARY:
+----------------
+Account Type: Savings Account
+Account No: 123456789012
+Bank IFSC Code: HDFC0001234
+Currency: INR
+Opening Balance: 1,54,320.00
+Closing Balance: 2,10,450.00
+
+TRANSACTION DETAILS:
+--------------------
+Date        | Narration                     | Chq No | Withdrawals | Deposits   | Balance
+------------+-------------------------------+--------+-------------+------------+------------
+05/06/2026  | Salary Credit                 | -      | 0.00        | 85,000.00  | 2,39,320.00
+12/06/2026  | ATM Cash Withdrawal           | -      | 10,000.00   | 0.00       | 2,29,320.00
+18/06/2026  | Transfer to ACC NO 987654321  | -      | 15,000.00   | 0.00       | 2,14,320.00
+25/06/2026  | UPI Payment to Merchant       | -      | 3,870.00    | 0.00       | 2,10,450.00
+
+----------------------------------------------------------------------
+For any discrepancies, please write to branch manager at cp.support@hdfcbank.com or call customer care. Note: Lowercase IFSC code 'hdfc0001234' is used on electronic clearing drafts.
+======================================================================

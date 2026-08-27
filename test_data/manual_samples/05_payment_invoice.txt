@@ -1,0 +1,32 @@
+======================================================================
+TRANSACTION RECEIPT & INVOICE
+======================================================================
+Merchant Name: Globe Services International Ltd
+Merchant ID: MID-9988371-G
+Invoice Number: INV-2026-4482
+Transaction Date: July 02, 2026 at 18:25:30 UTC
+
+BILLING ADDRESS:
+----------------
+Name: Vikram Singh
+Address: Flat 102, Royal Gardens, Sector 45
+City: Gurgaon
+State: Haryana
+Pin Code: 122003
+Country: India
+
+PAYMENT DETAILS:
+----------------
+Payment Mode: Credit Card (Online Payment Gateway)
+Cardholder Name: Vikram Singh
+Card Type: Visa Classic
+Credit Card Number (VALID Checksum): 4111-1111-1111-1111
+Credit Card Number (INVALID Checksum - Decoy): 4111-1111-1111-1112
+Card Expiry: 12/28
+Transaction Amount: 4,500.00 INR
+Authorization Code: AUTH-8829
+
+----------------------------------------------------------------------
+Important Security Note:
+We do not store your Credit Card CVV/CVC number (e.g. 456) in our databases. The transaction was processed securely via PCI-DSS compliant tokens. Please keep this receipt for future references.
+======================================================================

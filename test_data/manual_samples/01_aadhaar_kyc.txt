@@ -1,0 +1,40 @@
+======================================================================
+KYC CUSTOMER VERIFICATION & ONBOARDING FORM
+======================================================================
+Document Type: Proof of Identity / Address Verification
+Reference ID: KYC-2026-99824
+Date: July 02, 2026
+
+CUSTOMER INFORMATION:
+---------------------
+First Name: Rajesh
+Last Name: Kumar
+Father's Name: Madan Lal Kumar
+Date of Birth: 15 August 1985
+Gender: Male
+
+PERMANENT ADDRESS:
+------------------
+House/Flat No: Flat 4B, Sunflower Apartments
+Street: 12, Park Street
+Locality: Park Street Area
+City: Kolkata
+State: West Bengal
+Pin Code: 700016
+Country: India
+
+IDENTITY PROOF ATTACHED:
+------------------------
+Document Name: Aadhaar Card
+Aadhaar Number (UID): 234567890124
+
+VERIFICATION DECLARATION:
+-------------------------
+I, Rajesh Kumar, hereby declare that the details furnished above are true and correct to the best of my knowledge and belief. I submit this copy of my Aadhaar card (UID: 234567890124) solely for the purpose of identity verification for setting up my resident account.
+
+Note to Auditor: The decoy number 234567890125 was submitted in a previous draft but was rejected by the system because of an invalid Verhoeff checksum. Please ensure it is not stored in the database.
+
+----------------------------------------------------------------------
+For Office Use Only:
+Verified By: KYC Officer Amit Patel (Employee ID: EMP12345)
+Signature Stamp: [VERIFIED]

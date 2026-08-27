@@ -1,0 +1,29 @@
+======================================================================
+ZEAL SOLUTIONS LTD - PAYSLIP FOR THE MONTH OF JUNE 2026
+======================================================================
+Location: Sector 62, Noida, Uttar Pradesh - 201301
+Corporate Identity Number (CIN): U72200UP2018PLC099238
+
+EMPLOYEE PROFILE:
+-----------------
+Employee Name: Amit Patel
+Designation: Information Security Specialist
+Department: Information Security
+Employee ID: EMP12345
+Date of Joining: 10 January 2022
+Bank Name: HDFC Bank Ltd (ACC NO: 123456789012)
+
+EARNINGS DETAILS:                  | DEDUCTIONS DETAILS:
+------------------                  | --------------------
+Basic Salary:       60,000.00 INR   | Provident Fund (PF): 7,200.00 INR
+HRA Allowance:      25,000.00 INR   | Professional Tax:      200.00 INR
+Special Allowance:  15,000.00 INR   | Income Tax (TDS):    8,500.00 INR
+------------------------------------+---------------------------------
+Gross Earnings:   1,00_000.00 INR   | Total Deductions:   15,900.00 INR
+
+NET SALARY PAID: 84,100.00 INR (Rupees Eighty Four Thousand One Hundred Only)
+
+----------------------------------------------------------------------
+This is a computer-generated payslip and does not require physical signature. 
+Admin note: The lowercase employee ID 'emp12345' is mapped in the active directory group policy.
+======================================================================

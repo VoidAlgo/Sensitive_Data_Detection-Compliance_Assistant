@@ -1,0 +1,36 @@
+From: Priya Sharma <priya.sharma@example.com>
+To: Customer Support <support@finance-corp.co.in>
+Date: Thursday, July 2, 2026 at 10:15 AM
+Subject: Urgent: Request to Update Contact Information on Account
+
+Dear Finance Corp Support Team,
+
+I am writing to request an update to the mobile number registered on my account. My current registered mobile number is no longer active. 
+
+Please replace it with my new Indian mobile number: 9876543210. 
+If your system requires the international format with country code, it is: +91 9123456780.
+
+For security verification, my email address is priya.sharma@example.com and my client ID is SHARMA90. I can also be reached at my alternate US number +1-555-0199 if I am traveling.
+
+Looking forward to your quick response.
+
+Best regards,
+Priya Sharma
+
+----------------------------------------------------------------------
+From: Support Admin <admin@localdomain>
+To: Priya Sharma <priya.sharma@example.com>
+Date: Thursday, July 2, 2026 at 11:30 AM
+Subject: Re: Urgent: Request to Update Contact Information on Account
+
+Hello Priya,
+
+Thank you for reaching out to Finance Corp. 
+We have received your request to update your phone number to 9876543210. To complete this change, please log in to our secure portal and upload a copy of your PAN card.
+
+For any further queries, please email support@finance-corp.co.in or call our helpline at 1800-200-1234.
+
+Sincerely,
+Customer Support Team
+Finance Corp
+(Sent via: mailer@localdomain)
