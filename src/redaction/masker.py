@@ -1,0 +1,140 @@
+"""Masking rules — the single source of truth for how sensitive values are hidden.
+
+``mask_value`` is used at detection time (Phase 4) so raw values never surface by
+default, and again for document-level sanitized export (Phase 8). Keeping the
+rules here avoids duplicating masking logic across the detection and redaction
+layers.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+
+from src.models import EntityType, Finding
+
+
+def findings_fingerprint(findings: list[Finding]) -> str:
+    """Stable hash of everything that determines a document's redacted output.
+
+    Persisted next to a vector index so that improving a detector invalidates the
+    cached index instead of silently serving text masked under the old rules. Without
+    it, a fix that detects a *new* kind of PII would leave that PII exposed in every
+    previously-built index.
+    """
+    payload = sorted((f.start, f.end, f.entity_type.value) for f in findings)
+    digest = hashlib.sha256(repr(payload).encode("utf-8"))
+    return digest.hexdigest()[:16]
+
+# Entity types that must be fully masked (never reveal any part).
+_FULLY_MASKED: frozenset[EntityType] = frozenset(
+    {EntityType.API_KEY, EntityType.PASSWORD}
+)
+
+
+def _keep_last(raw: str, keep: int = 4) -> str:
+    """Mask everything but the last ``keep`` alphanumeric characters."""
+    digits = [c for c in raw if c.isalnum()]
+    if len(digits) <= keep:
+        return "*" * len(raw)
+    visible = "".join(digits[-keep:])
+    return f"{'*' * (len(digits) - keep)}{visible}"
+
+
+def _mask_email(raw: str) -> str:
+    if "@" not in raw:
+        return "*" * len(raw)
+    local, _, domain = raw.partition("@")
+    masked_local = (local[0] + "***") if local else "***"
+    if "." in domain:
+        name, _, tld = domain.rpartition(".")
+        masked_domain = f"{(name[0] + '***') if name else '***'}.{tld}"
+    else:
+        masked_domain = "***"
+    return f"{masked_local}@{masked_domain}"
+
+
+def mask_value(entity_type: EntityType, raw: str) -> str:
+    """Return a masked rendering of ``raw`` appropriate to its entity type."""
+    if not raw:
+        return ""
+    if entity_type in _FULLY_MASKED:
+        return "********"
+    if entity_type == EntityType.EMAIL:
+        return _mask_email(raw)
+    if entity_type == EntityType.DOB:
+        # Never reveal any part of a date of birth.
+        return "".join("*" if c.isdigit() else c for c in raw)
+    if entity_type in {
+        EntityType.AADHAAR,
+        EntityType.VID,
+        EntityType.CREDIT_CARD,
+        EntityType.PHONE,
+        EntityType.BANK_ACCOUNT,
+        EntityType.PAN,
+        EntityType.EMPLOYEE_ID,
+        EntityType.IFSC,
+    }:
+        return _keep_last(raw, keep=4)
+    # Names / orgs / locations / confidential snippets: partial mask.
+    if len(raw) <= 2:
+        return "*" * len(raw)
+    return f"{raw[0]}{'*' * (len(raw) - 2)}{raw[-1]}"
+
+
+def replacement_for(finding: Finding, style: str = "mask") -> str:
+    """Return the string that replaces a finding's raw value.
+
+    ``style`` = "mask" → partial masked value (e.g. ``****1234``);
+    ``style`` = "placeholder" → ``[REDACTED:TYPE]``.
+    """
+    if style == "placeholder":
+        return f"[REDACTED:{finding.entity_type.value}]"
+    return finding.value_masked
+
+
+def redact_text(
+    text: str,
+    findings: list[Finding],
+    base_offset: int = 0,
+    style: str = "mask",
+) -> str:
+    """Replace each finding's span in ``text`` with its redacted rendering.
+
+    ``base_offset`` is the absolute char offset of ``text`` within the document,
+    so a segment can be redacted using document-relative finding spans. Spans are
+    applied right-to-left so earlier offsets stay valid. This is the single
+    document-level redaction primitive, reused by RAG (P6, "mask") and export
+    (P8, configurable style).
+    """
+    length = len(text)
+    spans = sorted(findings, key=lambda f: f.start, reverse=True)
+    for finding in spans:
+        start = finding.start - base_offset
+        end = finding.end - base_offset
+        if 0 <= start < end <= length:
+            text = text[:start] + replacement_for(finding, style) + text[end:]
+    return text
+
+
+def redact_all_occurrences(text: str, findings: list[Finding], style: str = "mask") -> str:
+    """Replace EVERY occurrence of each detected value in ``text``.
+
+    Detection may match a repeated value (e.g. a name printed twice on an ID) only
+    once, but a sanitized export must leave no occurrence behind. All values are
+    replaced in a **single pass** (longest-first alternation), so a value inside an
+    already-inserted placeholder is never re-redacted (avoids ``[REDACTED:[…]]``).
+    Alphanumeric boundaries stop a value matching inside a larger token. This
+    complements the span-based ``redact_text`` used by RAG and mirrors what the PDF
+    export already does via ``search_for``.
+    """
+    mapping: dict[str, str] = {}
+    for finding in findings:
+        if finding.value_raw and finding.value_raw not in mapping:
+            mapping[finding.value_raw] = replacement_for(finding, style)
+    if not mapping:
+        return text
+    values = sorted(mapping, key=len, reverse=True)
+    alternation = "|".join(re.escape(v) for v in values)
+    pattern = re.compile(rf"(?<![A-Za-z0-9])(?:{alternation})(?![A-Za-z0-9])")
+    return pattern.sub(lambda m: mapping[m.group(0)], text)
