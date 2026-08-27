@@ -1,0 +1,39 @@
+======================================================================
+MUTUAL NON-DISCLOSURE AGREEMENT (NDA)
+======================================================================
+This Mutual Non-Disclosure Agreement ("Agreement") is entered into on
+this 2nd day of July 2026, by and between:
+
+ACME CORP, a corporation incorporated under the laws of Delaware,
+having its principal place of business at 100 Enterprise Way, Wilmington, DE
+("Disclosing Party")
+
+and
+
+TECH SOLUTIONS LTD, a company incorporated under the laws of India,
+having its registered office at Sector 62, Noida, Uttar Pradesh
+("Receiving Party")
+
+1. PURPOSE
+The parties wish to explore a potential strategic M&A transaction
+whereby Acme Corp is planning to acquire Tech Solutions Ltd for a purchase
+price of $45M. In connection with these M&A pricing negotiations, the parties
+will share highly confidential financial projections, customer rosters,
+and operational trade secrets.
+
+2. CONFIDENTIAL INFORMATION
+"Confidential Information" means any proprietary information, M&A
+transaction terms, pricing formulas, and technical drawings disclosed
+by either party. The parties agree not to disclose proprietary financial data or
+potential M&A negotiations discussed in June 2026 to any third party.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement:
+
+For Acme Corp:
+Signature: [Vikram Singh]
+Title: Vice President of Corporate Development
+
+For Tech Solutions Ltd:
+Signature: [Amit Patel]
+Title: Chief Technology Officer
+======================================================================

@@ -1,0 +1,68 @@
+======================================================================
+MANUAL TEST FILE: SENSITIVE DATA SAMPLES
+======================================================================
+
+1. AADHAAR CARD DETAILS
+-----------------------
+Full Name: Rajesh Kumar
+Date of Birth: 15/08/1985
+Gender: Male
+Address: 12, Park Street, Kolkata, West Bengal - 700016
+Aadhaar Number (VALID Checksum): 234567890124
+Aadhaar Number (INVALID Checksum - Decoy): 234567890125
+
+2. PAN CARD DETAILS
+-------------------
+Full Name: Priya Sharma
+Father's Name: Ramesh Sharma
+Date of Birth: 04/11/1990
+PAN Card Number (VALID Uppercase): ABCDE1234F
+PAN Card Number (Lowercase - Case-Sensitivity Test): abcde1234f
+
+3. EMAIL ADDRESSES
+------------------
+Personal Email: priya.sharma@example.com
+Business Contact: support@finance-corp.co.in
+Invalid Format (Decoy): admin@localdomain
+
+4. PHONE NUMBERS
+----------------
+Primary Mobile (VALID Indian): 9876543210
+Secondary Mobile (with Country Code): +91 9123456780
+US Number (Decoy - System Limitation Test): +1-555-0199
+
+5. CREDIT CARD DETAILS
+----------------------
+Cardholder Name: Vikram Singh
+Credit Card Number (VALID Visa - Luhn Check passes): 4111 1111 1111 1111
+Credit Card Number (INVALID Visa - Luhn Check fails): 4111 1111 1111 1112
+Expiry Date: 12/28
+CVV/CVC: 456
+
+6. BANK ACCOUNT DETAILS
+-----------------------
+Bank Name: HDFC Bank Ltd
+Branch Name: Connaught Place, New Delhi
+Account No: 123456789012
+Bank IFSC Code (VALID Uppercase): HDFC0001234
+Bank IFSC Code (Lowercase - Case-Sensitivity Test): hdfc0001234
+
+7. API KEYS & CREDENTIALS
+-------------------------
+AWS Access Key ID: AKIAIOSFODNN7EXAMPLE
+OpenAI API Key: sk-proj-ab12cd34ef56gh78ij90kl12
+GitHub Personal Access Token: ghp_123456789012345678901234567890123456
+System Administrator Password: SecretPassword@2026
+
+8. EMPLOYEE IDENTIFICATION
+--------------------------
+Name: Amit Patel
+Department: Information Security
+Employee ID (VALID Uppercase): EMP12345
+Employee ID (Lowercase - Case-Sensitivity Test): emp12345
+
+9. CONFIDENTIAL BUSINESS INFORMATION (LLM Contextual Pass Test)
+--------------------------------------------------------------
+Project: Project Hawk M&A Negotiations
+Status: Highly Confidential
+Description: Acme Corp is planning a strategic M&A transaction to acquire Tech Solutions for $45M. This transaction is governed by a mutual Non-Disclosure Agreement (NDA) signed in June 2026. The parties agree to keep all proprietary financial projections and M&A pricing negotiations secret.
