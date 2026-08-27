@@ -1,0 +1,455 @@
+"""Streamlit entrypoint.
+
+Thin UI layer only — all business logic lives in ``src/``. This module wires
+user interactions to the ingestion/detection/RAG services, caches per-document
+results in session state, and renders them across tabs.
+"""
+
+from __future__ import annotations
+
+import time
+
+import pandas as pd
+import streamlit as st
+
+from src.audit import log_detection, log_query, read_recent
+from src.classification.risk import classify_risk
+from src.compliance import generate_summary
+from src.config import Settings, get_settings
+from src.detection.engine import run_detection, summarize_counts
+from src.ingestion.loaders import (
+    UnsupportedFileTypeError,
+    extraction_warning,
+    load_document,
+)
+from src.llm.gemini_client import GeminiClient
+from src.models import Document, Finding, RiskLevel, RiskReport
+from src.rag.qa import answer_corpus, answer_question, build_index
+from src.redaction.export import redact_csv, redact_pdf, redact_txt
+
+_RISK_COLORS = {RiskLevel.LOW: "green", RiskLevel.MEDIUM: "orange", RiskLevel.HIGH: "red"}
+
+
+def get_client() -> GeminiClient:
+    """Return the session-scoped Gemini client (persists quota across reruns)."""
+    if "gemini_client" not in st.session_state:
+        st.session_state["gemini_client"] = GeminiClient()
+    return st.session_state["gemini_client"]
+
+
+def ensure_processed(
+    document: Document, settings: Settings
+) -> tuple[list[Finding], RiskReport]:
+    """Detect + classify (once per doc_id), cache, and audit-log the run."""
+    findings_cache = st.session_state.setdefault("findings_cache", {})
+    risk_cache = st.session_state.setdefault("risk_cache", {})
+    audited = st.session_state.setdefault("audited_docs", set())
+
+    if document.doc_id not in findings_cache:
+        client = get_client()
+        with st.spinner("Detecting sensitive data…"):
+            start = time.perf_counter()
+            findings = run_detection(document, client, settings)
+            latency = (time.perf_counter() - start) * 1000
+        risk = classify_risk(findings, document.page_count, settings)
+        findings_cache[document.doc_id] = findings
+        risk_cache[document.doc_id] = risk
+        if document.doc_id not in audited:
+            log_detection(
+                document.doc_id,
+                summarize_counts(findings),
+                risk.level.value,
+                client.last_model_used,
+                latency,
+                settings,
+            )
+            audited.add(document.doc_id)
+    return findings_cache[document.doc_id], risk_cache[document.doc_id]
+
+
+def render_risk(report: RiskReport) -> None:
+    color = _RISK_COLORS[report.level]
+    st.markdown(f"### Overall risk: :{color}[{report.level.value}]")
+    st.metric("Risk score", report.score)
+    st.write(report.summary)
+    if report.contributors:
+        st.write("**Contributor breakdown**")
+        data = {c.entity_type.value: c.contribution for c in report.contributors}
+        st.bar_chart(pd.Series(data, name="contribution"))
+
+
+def render_redaction(
+    document: Document, findings: list[Finding], raw_bytes: bytes, settings: Settings
+) -> None:
+    st.caption(
+        f"Redaction style: **{settings.redaction_style}**. Download a sanitized copy "
+        "with all detected sensitive values removed."
+    )
+    redacted_text = redact_txt(document, findings, settings)
+    left, right = st.columns(2)
+    with left:
+        st.write("**Original (masked preview)**")
+        st.text(document.text[:1500])
+    with right:
+        st.write("**Redacted**")
+        st.text(redacted_text[:1500])
+
+    st.download_button(
+        "⬇️ Download redacted TXT",
+        data=redacted_text,
+        file_name=f"redacted_{document.filename}.txt",
+        mime="text/plain",
+    )
+    if document.file_type == "pdf":
+        st.download_button(
+            "⬇️ Download redacted PDF",
+            data=redact_pdf(raw_bytes, findings, settings),
+            file_name=f"redacted_{document.filename}",
+            mime="application/pdf",
+        )
+    if document.file_type == "csv":
+        st.download_button(
+            "⬇️ Download redacted CSV",
+            data=redact_csv(document, findings, settings),
+            file_name=f"redacted_{document.filename}",
+            mime="text/csv",
+        )
+
+
+def render_summary(document: Document, findings: list[Finding], risk: RiskReport, settings: Settings) -> None:
+    cache = st.session_state.setdefault("summary_cache", {})
+    if st.button(
+        "Generate compliance summary", type="primary", key=f"summary_{document.doc_id}"
+    ) or document.doc_id in cache:
+        if document.doc_id not in cache:
+            with st.spinner("Generating compliance summary…"):
+                cache[document.doc_id] = generate_summary(
+                    document, findings, risk, get_client(), settings
+                )
+        result = cache[document.doc_id]
+        if result.model_used:
+            st.caption(f"🤖 Generated by **`{result.model_used}`**")
+        else:
+            st.caption("📋 Generated by the deterministic template — no LLM was available.")
+        st.markdown(result.text)
+        st.download_button(
+            "⬇️ Download report (Markdown)",
+            data=result.text,
+            file_name=f"compliance_report_{document.doc_id}.md",
+            mime="text/markdown",
+        )
+    else:
+        st.info("Click to generate a grounded compliance summary with remediation steps.")
+
+
+def get_store(document: Document, findings: list[Finding], settings: Settings):
+    """Build/load and cache the RAG index for the document."""
+    cache = st.session_state.setdefault("store_cache", {})
+    if document.doc_id not in cache:
+        with st.spinner("Building search index…"):
+            cache[document.doc_id] = build_index(document, findings, settings=settings)
+    return cache[document.doc_id]
+
+
+def render_chat(document: Document, findings: list[Finding], settings: Settings) -> None:
+    st.caption(
+        "Ask about the document. Answers are grounded in retrieved context and "
+        "cite their sources; counting questions use the deterministic findings."
+    )
+    documents = st.session_state.get("documents", {})
+    corpus = False
+    if len(documents) > 1:
+        corpus = st.checkbox(
+            "🔎 Search across all uploaded documents (corpus mode)",
+            key=f"corpus_{document.doc_id}",
+        )
+
+    histories = st.session_state.setdefault("chat_histories", {})
+    history = histories.setdefault(document.doc_id, [])
+
+    for msg in history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    question = st.chat_input(
+        "e.g. What sensitive data exists in the document?",
+        key=f"chat_{document.doc_id}",
+    )
+    if not question:
+        return
+
+    history.append({"role": "user", "content": question})
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    with st.chat_message("assistant"), st.spinner("Thinking…"):
+        start = time.perf_counter()
+        if corpus:
+            result = _answer_corpus(question, documents, settings)
+        else:
+            store = get_store(document, findings, settings)
+            result = answer_question(
+                question, document, findings, get_client(), store, settings=settings
+            )
+        latency = (time.perf_counter() - start) * 1000
+        if result.model_used:
+            st.caption(f"🤖 Answered by **`{result.model_used}`**")
+        st.markdown(result.answer)
+        if not result.grounded:
+            st.caption("⚠️ Not grounded — insufficient supporting context.")
+        if result.citations:
+            with st.expander(f"Citations ({len(result.citations)})"):
+                for cit in result.citations:
+                    loc = f"page {cit.page}, line {cit.line}"
+                    st.markdown(f"- **[{cit.chunk_id}]** ({loc}) — {cit.snippet}")
+    log_query(document.doc_id, question, result.grounded, result.model_used, latency, settings)
+    history.append({"role": "assistant", "content": result.answer})
+
+
+def _answer_corpus(question: str, documents: dict, settings: Settings):
+    """Merge findings + indexes across all uploaded documents for a corpus answer.
+
+    Every document is processed first (``ensure_processed``) so its findings exist
+    before the search index is built — otherwise a document the user never opened
+    would be indexed with no findings and the chunker could not mask it, leaking
+    raw PII into the vector store and citations.
+    """
+    all_findings: list[Finding] = []
+    stores = []
+    for entry in documents.values():
+        doc = entry["document"]
+        findings, _ = ensure_processed(doc, settings)
+        all_findings.extend(findings)
+        stores.append(get_store(doc, findings, settings))
+    return answer_corpus(question, all_findings, get_client(), stores, settings=settings)
+
+
+def render_active_model_banner(client: GeminiClient) -> None:
+    """Prominent, always-visible indicator of which LLM is currently in use."""
+    if client.last_model_used:
+        st.info(f"🤖 Last AI response was generated by **`{client.last_model_used}`**")
+        return
+    next_model = client.next_available_model()
+    if next_model:
+        st.info(f"🤖 No AI calls yet this session — next one will use **`{next_model}`**")
+    else:
+        st.warning("🤖 No LLM backend available — AI features will use deterministic fallbacks.")
+
+
+def render_quota_panel(client: GeminiClient) -> None:
+    """Render live per-model RPM/RPD usage in the sidebar."""
+    st.subheader("Gemini model rotation")
+    if client.last_model_used:
+        st.caption(f"Last call served by **{client.last_model_used}**")
+    next_model = client.next_available_model()
+    for usage in client.rate_limiter.snapshot():
+        status = "🟢" if usage.available else ("🟡" if usage.cooling_down else "🔴")
+        marker = " ⬅️ *next*" if usage.name == next_model else ""
+        if usage.provider == "ollama":
+            st.write(f"{status} `{usage.name}` — 💻 local (unlimited){marker}")
+        else:
+            st.write(
+                f"{status} `{usage.name}` — RPM {usage.rpm_used}/{usage.rpm_limit} · "
+                f"RPD {usage.rpd_used}/{usage.rpd_limit}{marker}"
+            )
+
+
+def render_audit(settings: Settings) -> None:
+    """Show recent audit events (masked, PII-free) in a sidebar expander."""
+    events = read_recent(15, settings)
+    with st.expander(f"🧾 Audit log ({len(events)})"):
+        if not events:
+            st.caption("No activity logged yet.")
+            return
+        for e in reversed(events):
+            ts = e.get("ts", "")[:19]
+            if e.get("event") == "detection":
+                st.caption(f"{ts} · detect · {e.get('risk_level')} · {e.get('doc_id')}")
+            else:
+                st.caption(f"{ts} · query · grounded={e.get('grounded')} · {e.get('doc_id')}")
+
+
+def render_overview(document: Document, findings: list[Finding], settings: Settings) -> None:
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Format", document.file_type.upper())
+    col2.metric("Pages / segments", document.page_count)
+    col3.metric("Characters", f"{len(document.text):,}")
+    col4.metric("Sensitive findings", len(findings))
+    if document.used_ocr:
+        st.caption("ℹ️ OCR was used to extract text from a scanned page.")
+    warning = extraction_warning(document, settings)
+    if warning:
+        st.warning(f"⚠️ {warning}")
+    with st.expander("Text preview", expanded=False):
+        st.text(document.text[:2000] + ("…" if len(document.text) > 2000 else ""))
+
+
+def render_findings(findings: list[Finding], document: Document, settings: Settings) -> None:
+    # Detection can only see what ingestion extracted, so an unreadable document
+    # must never be presented as clean.
+    warning = extraction_warning(document, settings)
+    if warning:
+        st.warning(f"⚠️ {warning}")
+
+    if not findings:
+        if warning:
+            st.info("No sensitive data was found in the text that could be read.")
+        else:
+            st.success("No sensitive data detected.")
+        return
+
+    counts = summarize_counts(findings)
+    st.write("**Findings by type**")
+    st.bar_chart(pd.Series(counts, name="count"))
+
+    reveal = st.checkbox(
+        "Reveal raw values (handle with care)",
+        value=False,
+        key=f"reveal_{document.doc_id}",
+    )
+    rows = [
+        {
+            "Type": f.entity_type.value,
+            "Value": f.value_raw if reveal else f.value_masked,
+            "Detector": f.detector,
+            "Confidence": round(f.confidence, 2),
+            "Page": f.page,
+            "Line": f.line,
+            "Column": f.column,
+            "Rationale": f.rationale or "",
+        }
+        for f in findings
+    ]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def main() -> None:
+    """Render the Streamlit application shell."""
+    settings = get_settings()
+
+    st.set_page_config(
+        page_title="Sensitive Data Detection & Compliance Assistant",
+        page_icon="🛡️",
+        layout="wide",
+    )
+
+    st.title("🛡️ Sensitive Data Detection & Compliance Assistant")
+    st.caption(
+        "Upload a document to detect sensitive data, classify risk, generate a "
+        "compliance summary, and ask grounded questions."
+    )
+    render_active_model_banner(get_client())
+
+    uploaded_files = st.file_uploader(
+        "Upload one or more documents",
+        type=["pdf", "txt", "csv"],
+        help="Supported formats: PDF, TXT, CSV.",
+        accept_multiple_files=True,
+        key="uploader",
+    )
+
+    submit_clicked = st.button(
+        "Submit / Analyze Uploaded Files", type="primary", key="submit_btn"
+    )
+
+    documents = st.session_state.setdefault("documents", {})
+
+    if submit_clicked and uploaded_files:
+        new_documents = {}
+        for uploaded in uploaded_files or []:
+            raw_bytes = uploaded.getvalue()
+            try:
+                doc = load_document(uploaded.name, raw_bytes, settings)
+                new_documents[doc.doc_id] = {"document": doc, "raw_bytes": raw_bytes}
+            except UnsupportedFileTypeError as exc:
+                st.error(f"{uploaded.name}: {exc}")
+                continue
+
+        # Clean caches for any documents that were removed from the uploader
+        findings_cache = st.session_state.setdefault("findings_cache", {})
+        risk_cache = st.session_state.setdefault("risk_cache", {})
+        summary_cache = st.session_state.setdefault("summary_cache", {})
+        store_cache = st.session_state.setdefault("store_cache", {})
+        chat_histories = st.session_state.setdefault("chat_histories", {})
+
+        for doc_id in list(findings_cache.keys()):
+            if doc_id not in new_documents:
+                findings_cache.pop(doc_id, None)
+                risk_cache.pop(doc_id, None)
+                summary_cache.pop(doc_id, None)
+                store_cache.pop(doc_id, None)
+                chat_histories.pop(doc_id, None)
+
+        st.session_state["documents"] = new_documents
+        documents = new_documents
+
+        # Drop a stale active-document selection so the keyed selectbox can't
+        # retain a doc_id that is no longer among its options.
+        if st.session_state.get("active_document_id") not in new_documents:
+            st.session_state.pop("active_document_id", None)
+
+    with st.sidebar:
+        st.header("Configuration")
+        st.write(f"**Embedding model:** `{settings.embedding_model}`")
+        st.write(f"**OCR enabled:** {settings.enable_ocr}")
+        st.write(f"**Models in rotation:** {len(settings.model_registry)}")
+        if settings.enable_reranker:
+            from src.rag.reranker import get_reranker
+
+            st.write(f"**Reranker:** on — `{get_reranker().active_model}`")
+        if not settings.gemini_api_key and not settings.enable_ollama:
+            st.warning("No LLM backend configured — LLM features disabled.")
+
+        local_only = st.checkbox(
+            "🔒 Local-only (no cloud)",
+            value=settings.local_only_mode,
+            help="Force the local Ollama backend — no document text leaves this machine.",
+            key="local_only",
+        )
+        get_client().set_local_only(local_only)
+
+        active_id = None
+        if documents:
+            st.divider()
+            st.subheader("Documents")
+            labels = {
+                doc_id: entry["document"].filename for doc_id, entry in documents.items()
+            }
+            active_id = st.selectbox(
+                "Active document",
+                options=list(documents.keys()),
+                format_func=lambda i: labels[i],
+                key="active_document_id",
+            )
+        st.divider()
+        render_quota_panel(get_client())
+        render_audit(settings)
+
+    if not documents or active_id is None:
+        st.info("👆 Upload a PDF, TXT, or CSV file and click 'Submit / Analyze Uploaded Files' to begin.")
+        return
+
+    entry = documents[active_id]
+    document = entry["document"]
+    st.success(f"Active: **{document.filename}** — `{document.doc_id}`")
+    findings, risk = ensure_processed(document, settings)
+
+    tabs = st.tabs(
+        ["📄 Overview", "🔍 Findings", "⚠️ Risk", "📋 Summary", "💬 Chat", "🖍️ Redaction"]
+    )
+    with tabs[0]:
+        render_overview(document, findings, settings)
+    with tabs[1]:
+        render_findings(findings, document, settings)
+    with tabs[2]:
+        render_risk(risk)
+    with tabs[3]:
+        render_summary(document, findings, risk, settings)
+    with tabs[4]:
+        render_chat(document, findings, settings)
+    with tabs[5]:
+        render_redaction(document, findings, entry["raw_bytes"], settings)
+
+
+if __name__ == "__main__":
+    main()
