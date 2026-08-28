@@ -14,7 +14,7 @@ google-generativeai==0.8.3
 numpy==1.26.4
 
 # Config & data models
-python-dotenv==1.2.2
+python-dotenv==1.2.3
 pydantic==2.9.2
 pydantic-settings==2.6.1
 
@@ -24,7 +24,7 @@ pymupdf==1.24.11
 pdfplumber==0.11.4
 charset-normalizer==3.4.0
 pytesseract==0.3.13
-pillow==12.3.0  # streamlit 1.39 requires pillow<11
+pillow==12.3.0  # streamlit >=1.54 relaxes the cap to pillow<13
 
 # NLP / detection
 spacy==3.8.2
@@ -33,13 +33,13 @@ spacy==3.8.2
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
 # RAG
-torch==2.12.1+cpu       # CPU-only (see --extra-index-url above)
+torch==2.13.0+cpu      # CPU-only (see --extra-index-url above)
 faiss-cpu==1.9.0
 sentence-transformers==3.2.1
 tiktoken==0.8.0
 
 # Reporting
-markdown==3.7
+markdown==3.8.1
 
 # Tooling / tests
 pytest==9.0.3

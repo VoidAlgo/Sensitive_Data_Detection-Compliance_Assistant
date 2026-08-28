@@ -52,6 +52,14 @@ streamlit run app.py
 ```
 Open http://localhost:8501.
 
+> **Windows: enable long paths before installing.** The PyTorch wheel ships
+> deeply nested CUDA headers, and on Windows without long-path support `pip`
+> fails partway through with `OSError: [Errno 2] No such file or directory`
+> pointing at a file under `torch/include/ATen/...`. It reads like a broken
+> dependency but it is the 260-character `MAX_PATH` limit. Either
+> [enable long paths](https://pip.pypa.io/warnings/enable-long-paths), or
+> clone into a short path such as `C:\src\` and create the virtualenv there.
+
 ### Run with Docker
 ```bash
 export GEMINI_API_KEY=your_key_here   # or put it in a .env file
